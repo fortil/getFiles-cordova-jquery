@@ -112,7 +112,7 @@ var Main = {
           nV = newFile.version.split('.');
       if( !oV.equals(nV) ){
         this.insertVersion( JSON.stringify(newFile) )
-        this.deletedFiles( this.downloadFilesBegin, newFile.files )
+        deletedFiles( this.downloadFilesBegin, newFile.files )
       }else{
         this.downloadedState( $('#download') )
       }
