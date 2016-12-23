@@ -47,18 +47,15 @@ var Main = {
     $(el).text('Ver archivos')
     $(lis).remove()
 
-    var mouseOnButton = this.mouseOnButton.bind(this);
-    var mouseOutButton = this.mouseOutButton.bind(this);
-
     if( files ){
       for (var i = 0; i < files.length; i++) {
-        $(ul).append('<li class="list-group-item" data-url="\''+ entry.nativeURL +'\'" onmouseup="mouseOutButton(\''+ files[i].path +'\')" onmousedown="mouseOnButton(\''+ files[i].name +'\',\''+ this.cordovaDir +'\')">'+ files[i].name +'</li>')
+        $(ul).append('<li class="list-group-item" data-url="\''+ files[i].path +'\'" onmouseup="mouseOutButton(\''+ files[i].path +'\')" onmousedown="mouseOnButton(\''+ files[i].name +'\',\''+ this.cordovaDir +'\')">'+ files[i].name +'</li>')
         // $(ul).append('<li class="list-group-item" onclick="openFile(\''+ files[i].path +'\')">'+ files[i].name +'</li>')
       }
     }else{
       this.getFiles(function( files ){
         for (var i = 0; i < files.length; i++) {
-          $(ul).append('<li class="list-group-item" data-url="\''+ entry.nativeURL +'\'" onmouseup="mouseOutButton(\''+ files[i].path +'\')" onmousedown="mouseOnButton(\''+ files[i].name +'\',\''+ self.cordovaDir +'\')">'+ files[i].name +'</li>')
+          $(ul).append('<li class="list-group-item" data-url="\''+ files[i].path +'\'" onmouseup="mouseOutButton(\''+ files[i].path +'\')" onmousedown="mouseOnButton(\''+ files[i].name +'\',\''+ self.cordovaDir +'\')">'+ files[i].name +'</li>')
         }
       })
     }
@@ -129,7 +126,7 @@ var Main = {
       tx.executeSql('INSERT INTO FILESVERSION (id, json, date ) VALUES (?,?,?)',[id,v,new Date().getTime()]);
     })
   },
-  deleteFile: function( path ){
+  deleteFile: function( path, cb ){
     this.DB.transaction( function(tx) {
       tx.executeSql('DELETE FROM FILES WHERE path = ?',[ path ], function(){cb(null,'ok')}, function(){cb('error',null)})
     })
@@ -312,10 +309,10 @@ function mouseOutButton ( url ){
       }
     );
   }
-},
+}
 function deleted( name, path ) {
   window.resolveLocalFileSystemURL(path, function(dir) {
-    deleteFile( path+name,function(e,ok){ console.log(e,ok) });
+    Main.deleteFile( path+name, function(e,ok){ console.log(e,ok) });
     dir.getFile(name, { create: false }, 
       function(fileEntry) {
         fileEntry.remove(function () {
@@ -328,7 +325,7 @@ function deleted( name, path ) {
         });
     });
   });
-},
+}
 
 
 document.addEventListener('deviceready', function() { inicialice() }, false);
