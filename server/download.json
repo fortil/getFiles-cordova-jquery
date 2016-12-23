@@ -1,0 +1,20 @@
+{
+  "files":[
+    {
+      "name": "file1",
+      "size": "83",
+      "route": "http://192.168.4.88/files/3-p63-Rivadera.pdf"
+    },
+    {
+      "name": "file2",
+      "size": "272",
+      "route": "http://192.168.4.88/files/funcional-diapos.pdf"
+    },
+    {
+      "name": "file3",
+      "size": "83",
+      "route": "http://192.168.4.88/files/3-p63-Rivadera.pdf"
+    }
+  ],
+  "version": "1.0.0"
+}
