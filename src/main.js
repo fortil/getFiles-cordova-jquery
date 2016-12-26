@@ -29,38 +29,41 @@ function addClass(el, cl) {
   }
 }
 var Main = {
-  serverName: 'http://192.168.4.88/files',
+  cordovaDir:'file:///storage/D62D-1E04/',
+  serverName: 'http://192.168.0.16/files',
   fileName: "download.json",
   DB: {},
   Files:[],
   JsonVersion: {},
+  timer: null,
   reloadView: function( files ){
-    var el = $('#ver');
-    var ul = $('ul.list-group li')
+    let el = $('#ver');
+    let ul = $('ul.list-group')
+    let lis = $('li', ul)
 
     $(el).removeClass('btn-info')
     $(el).addClass('btn-success')
     $(el).text('Ver archivos')
-    $(ul).remove()
+    $(lis).remove()
 
     if( files ){
       for (var i = 0; i < files.length; i++) {
-        $(ul).append('<li class="list-group-item" onclick="openFile(\''+ files[i].path +'\')">'+ files[i].name +'</li>')
+        $(ul).append('<li class="list-group-item downloaded items-files" data-url="\''+ files[i].path +'\'" onmouseup="mouseOutButton(\''+ files[i].path +'\')" onmousedown="mouseOnButton(\''+ files[i].name +'\',\''+ this.cordovaDir +'\')">'+ files[i].name +'</li>')
+        // $(ul).append('<li class="list-group-item" onclick="openFile(\''+ files[i].path +'\')">'+ files[i].name +'</li>')
       }
     }else{
-      this.getFiles(function( files ){
+      this.getFiles( files => {
         for (var i = 0; i < files.length; i++) {
-          $(ul).append('<li class="list-group-item" onclick="openFile(\''+ files[i].path +'\')">'+ files[i].name +'</li>')
+          $(ul).append('<li class="list-group-item downloaded items-files" data-url="\''+ files[i].path +'\'" onmouseup="mouseOutButton(\''+ files[i].path +'\')" onmousedown="mouseOnButton(\''+ files[i].name +'\',\''+ this.cordovaDir +'\')">'+ files[i].name +'</li>')
         }
       })
     }
   },
   downloadFilesPDFs: function( ) {
-    var self = this;
-    this.getVersion(function( oldFile ){
-      self.gettingFile( self.serverName+"/"+self.fileName , function(err, text) {
+    this.getVersion( oldFile => {
+      this.gettingFile( this.serverName+"/"+this.fileName , (err, text)  => {
         if(text){
-          self.compareVersion(oldFile, JSON.parse(text))
+          this.compareVersion( oldFile, JSON.parse(text))
         }
       })
 
@@ -107,7 +110,7 @@ var Main = {
           nV = newFile.version.split('.');
       if( !oV.equals(nV) ){
         this.insertVersion( JSON.stringify(newFile) )
-        this.deletedFiles( this.downloadFilesBegin, newFile.files )
+        deletedFiles( this.downloadFilesBegin, newFile.files )
       }else{
         this.downloadedState( $('#download') )
       }
@@ -119,6 +122,11 @@ var Main = {
     this.DB.transaction( function(tx) {
       var id = Math.floor(Math.random() * 100000)
       tx.executeSql('INSERT INTO FILESVERSION (id, json, date ) VALUES (?,?,?)',[id,v,new Date().getTime()]);
+    })
+  },
+  deleteFile: function( path, cb ){
+    this.DB.transaction( function(tx) {
+      tx.executeSql('DELETE FROM FILES WHERE path = ?',[ path ], function(){cb(null,'ok')}, function(){cb('error',null)})
     })
   },
   insertFile: function( file ){
@@ -164,13 +172,27 @@ var Main = {
     });
   },
   initDataBase: function ( cb ) {
-    this.DB = window.openDatabase('files','1.0.0', 'Default description', 64 * 1024 );
-    this.DB.transaction( function( tx ) {
-      tx.executeSql('CREATE TABLE IF NOT EXISTS FILESVERSION (id unique, json, date )');
-      tx.executeSql('CREATE TABLE IF NOT EXISTS FILES (id unique, name, path, type, date )');
-      if( cb )
-        cb( );
+    this.DB  = new Helper.SQLRecords({name:'files', description:'Default description', size:64 * 1024 })
+    this.DB.createTable({
+      name:'FILESVERSION',
+      fields: ['id unique', 'json', 'date']
+    }, 
+    (e,o) => {
+      this.DB.createTable({
+        name:'FILES',
+        fields: ['id unique', 'name', 'path', 'type', 'date']
+      }, 
+      (er,ok) => {
+        console.log(er,ok)
+      })  
     })
+    // this.DB = window.openDatabase('files','1.0.0', 'Default description', 64 * 1024 );
+    // this.DB.transaction( function( tx ) {
+    //   tx.executeSql('CREATE TABLE IF NOT EXISTS FILESVERSION (id unique, json, date )');
+    //   tx.executeSql('CREATE TABLE IF NOT EXISTS FILES (id unique, name, path, type, date )');
+    //   if( cb )
+    //     cb( );
+    // })
   },
   toggleVerArchivos: function( el ){
     var lsitGroup = $('.list-group');
@@ -220,10 +242,10 @@ var Main = {
       }
 
       cordova.exec( function(result) {
-        // revisar esta parte, falta saber qué devuelve result
-        // para comparar con lo que se va a descargar y si se puede descargar
-        console.log(result)
-        f(i)
+        if((result / 1024) >= sizeFiles)
+          alert(' No le queda espacio para almacenar los archivos ')
+        else
+          f(i)
       }, function(result)  {
         alert('No hay espacio en el disco')
       }, "File", "getFreeDiskSpace", [])
@@ -235,7 +257,7 @@ var Main = {
 
       var fileTransfer = new FileTransfer();
       var uri = encodeURI( files[e].route );
-      var pathToFile = cordova.file.externalDataDirectory + files[e].name + '.pdf';
+      var pathToFile = self.cordovaDir + files[e].name;
 
       fileTransfer.onprogress = function(progressEvent) {
         if (progressEvent.lengthComputable) {
@@ -252,7 +274,7 @@ var Main = {
           self.insertFile({name: files[e].name , fullPath: entry.nativeURL, type: 'pdf' })
 
           $('ul.list-group')
-            .append('<li class="list-group-item" onclick="openFile(\''+ entry.nativeURL +'\')">'+ files[e].name +'</li>')
+            .append('<li class="list-group-item" data-url="\''+ entry.nativeURL +'\'" onmouseup="mouseOutButton(\''+ entry.nativeURL +'\')" onmousedown="mouseOnButton(\''+ files[e].name +'\',\''+ self.cordovaDir +'\')">'+ files[e].name +'</li>')
 
           e ++
           if( e < countFiles ){
@@ -275,9 +297,47 @@ var Main = {
 
     vsDisk()
     
-  }
+  },
 }
 
+function mouseOnButton( name, path ){
+  Main.timer = setTimeout( function(){ 
+    if(confirm('Desea eliminar el archivo '+name)){
+      deleted(name, path)
+    }else{
+      mouseOutButton(path+name );
+    }
+  }, 2000 );
+}
+function mouseOutButton ( url ){
+  if( Main.timer <= 2000 ){
+    clearTimeout( Main.timer );
+    cordova.plugins.fileOpener2.open(
+      url,
+      'application/pdf', 
+      { 
+        error : function( e ){console.log('Error status: ' + e.status + ' - Error message: ' + e.message)},
+        success : function() {console.log('file opened successfully')}
+      }
+    );
+  }
+}
+function deleted( name, path ) {
+  window.resolveLocalFileSystemURL(path, function(dir) {
+    Main.deleteFile( path+name, function(e,ok){ console.log(e,ok) });
+    dir.getFile(name, { create: false }, 
+      function(fileEntry) {
+        fileEntry.remove(function () {
+          $('li[data-url*="'+path+name+'"]').remove()
+        }, function(error) {
+          alert('No se pudo elimar el archivo ',error);
+        },function () {
+          Main.reloadView();
+          alert('El archivo no existe ',error);
+        });
+    });
+  });
+}
 
 
 document.addEventListener('deviceready', function() { inicialice() }, false);
@@ -287,31 +347,32 @@ function inicialice(){
 
 
   Main.initDataBase();
+  Main.cordovaDir = cordova.file.externalDataDirectory;
   // se puede obtener en una variable global el archivo json 
   // más reciente guardado en la DB
-  Main.getVersion( function( json ){
+  // Main.getVersion( function( json ){
     
-  });
-  // Se puede obtener los archivos guardados en la DB
-  Main.getFiles( function( files ){
-    Main.reloadView( files )
-  });
+  // });
+  // // Se puede obtener los archivos guardados en la DB
+  // Main.getFiles( function( files ){
+  //   Main.reloadView( files )
+  // });
 
-  // Ver archivos
-  var verDocsElement = document.getElementById('ver')
-  verDocsElement.addEventListener('click', function() {
-    Main.toggleVerArchivos( verDocsElement )
-  }, false );
+  // // Ver archivos
+  // var verDocsElement = document.getElementById('ver')
+  // verDocsElement.addEventListener('click', function() {
+  //   Main.toggleVerArchivos( verDocsElement )
+  // }, false );
 
-  // descargar archivos
-  var downloadDocs = document.getElementById('download')
-  downloadDocs.addEventListener('click', function() {
-    Main.downloadingState( downloadDocs )
-    setTimeout(function(){ Main.downloadFilesPDFs( )},0)
-  }, false );
-  var setServer = document.getElementById('setServer');
-  setServer.addEventListener('click', function(){ Main.setServerName() }, false)
-  setServer.value = Main.serverName;
+  // // descargar archivos
+  // var downloadDocs = document.getElementById('download')
+  // downloadDocs.addEventListener('click', function() {
+  //   Main.downloadingState( downloadDocs )
+  //   setTimeout(function(){ Main.downloadFilesPDFs( )},0)
+  // }, false );
+  // var setServer = document.getElementById('setServer');
+  // setServer.addEventListener('click', function(){ Main.setServerName() }, false)
+  // setServer.value = Main.serverName;
 
   // document.getElementById('borrar').addEventListener('click', function(){ Main.deletedFiles() }, false)
   // Opcional de borrar todos los archivos
@@ -360,18 +421,3 @@ function deletedFiles( fn, argFn ) {
 
 }
 
-
-
-
-
-
-function openFile(url) {
-  cordova.plugins.fileOpener2.open(
-    url,
-    'application/pdf', 
-    { 
-      error : function( e ){console.log('Error status: ' + e.status + ' - Error message: ' + e.message)},
-      success : function() {console.log('file opened successfully')}
-    }
-  );
-}

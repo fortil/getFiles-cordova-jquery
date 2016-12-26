@@ -2,18 +2,21 @@
   "files":[
     {
       "name": "file1",
-      "size": "83",
-      "route": "http://192.168.4.88/files/3-p63-Rivadera.pdf"
+      "size": "0.1",
+      "route": "http://192.168.0.16/files/doc1.pdf",
+      "version": "0.0.1"
     },
     {
       "name": "file2",
-      "size": "272",
-      "route": "http://192.168.4.88/files/funcional-diapos.pdf"
+      "size": "0.1",
+      "route": "http://192.168.0.16/files/doc1.pdf",
+      "version": "0.0.1"
     },
     {
       "name": "file3",
-      "size": "83",
-      "route": "http://192.168.4.88/files/3-p63-Rivadera.pdf"
+      "size": "0.1",
+      "route": "http://192.168.0.16/files/doc1.pdf",
+      "version": "0.0.1"
     }
   ],
   "version": "1.0.0"

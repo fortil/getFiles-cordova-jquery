@@ -8,12 +8,9 @@ let vendorModules = /(node_modules|bower_components)/;
 module.exports = {
   // target: 'web',
   watch: true,
-  // node: {
-  //   fs: "empty"
-  // },
   entry: {
-    getfiles: './src/main.js',
-    'helpers.min': './src/helpers.js',
+    websql: './src/websql.ts',
+    // 'helpers.min': './src/helpers.js',
   },
   output: {
     // library: ['Helpers', 'SQLRecords'],
@@ -23,23 +20,7 @@ module.exports = {
 
   module: {
     loaders: [
-      {
-        test: /\.js/,
-        exclude: vendorModules,
-        loader: 'babel-loader',
-        query: {
-          presets: ['es2015', 'es2017'],
-          plugins: [
-            'transform-runtime',
-            'transform-es2015-destructuring',
-            'transform-object-rest-spread',
-            'transform-async-to-generator',
-            'typecheck',
-            'closure-elimination',
-            "transform-object-assign",
-          ]        
-        },
-      }
+      { test: /\.tsx?$/, loader: "awesome-typescript-loader" }
     ],
   },
   // Externals para johnny-five  
