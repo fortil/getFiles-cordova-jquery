@@ -1,23 +1,23 @@
 {
-  "files":[
-    {
-      "name": "file1",
-      "size": "0.1",
-      "route": "http://192.168.0.16/files/doc1.pdf",
-      "version": "0.0.1"
-    },
-    {
-      "name": "file2",
-      "size": "0.1",
-      "route": "http://192.168.0.16/files/doc1.pdf",
-      "version": "0.0.1"
-    },
-    {
-      "name": "file3",
-      "size": "0.1",
-      "route": "http://192.168.0.16/files/doc1.pdf",
-      "version": "0.0.1"
-    }
-  ],
-  "version": "1.0.0"
+  "file1.pdf": {
+    "id": "2",
+    "name": "file1.pdf",
+    "size": "1",
+    "route": "http://192.168.4.88/files/3-p63-Rivadera.pdf",
+    "version": "0.0.2"
+  },
+  "file2.pdf": {
+    "id": "1",
+    "name": "file2.pdf",
+    "size": "1",
+    "route": "http://192.168.4.88/files/funcional-diapos.pdf",
+    "version": "0.0.2"
+  },
+  "file3.pdf": {
+    "id": "3",
+    "name": "file3.pdf",
+    "size": "1",
+    "route": "http://192.168.4.88/files/3-p63-Rivadera.pdf",
+    "version": "0.0.2"
+  }
 }
