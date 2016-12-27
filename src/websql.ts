@@ -152,6 +152,20 @@ const SQL = function(config: SQLConfig){
     * Ej: { id: 1, data1: 2} = 'WHERE id = 1 AND data1 = 2' o { id: { AND:[1, 2] } } = 'WHERE id = 1 AND id = 2'
     * { id: { OR: [1, 2] }, data2: 2 } = 'WHERE id = 1 OR id = 2 AND data2 = 2'
     */
+    /*
+    * Recive un objeto "records" en el cual se especifica 
+    * la key es el campo por el cual se obtendrá la data y el valor es 
+    * al que tendrá que hacer referencia del campo guardado, si no se especifica nada se optienen todos los valores
+    * Ej: { id: 1, data1: 2} = 'WHERE id = 1 AND data1 = 2' o { id: { AND:[1, 2] } } = 'WHERE id = 1 AND id = 2'
+    * { id: { OR: [1, 2] }, data2: 2 } = 'WHERE id = 1 OR id = 2 AND data2 = 2'
+    */
+    /*
+    * Recive un objeto "records" en el cual se especifica 
+    * la key es el campo por el cual se obtendrá la data y el valor es 
+    * al que tendrá que hacer referencia del campo guardado, si no se especifica nada se optienen todos los valores
+    * Ej: { id: 1, data1: 2} = 'WHERE id = 1 AND data1 = 2' o { id: { AND:[1, 2] } } = 'WHERE id = 1 AND id = 2'
+    * { id: { OR: [1, 2] }, data2: 2 } = 'WHERE id = 1 OR id = 2 AND data2 = 2'
+    */
     getValues: function( ):any{
       return function( values:any,  cb = (tx:any, result:any) => console.log(result,'ok getValues'), error = (tx:any, e: any) => console.log( "error getValues",e) ){
         this.db.transaction( (tx:any) => {
