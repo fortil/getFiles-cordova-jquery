@@ -67,25 +67,7 @@ var Main = {
 
     this.addProgressBar( {total: 100, loaded:0, show:false} );
     if( txt ){
-      window.plugins.toast.showWithOptions(
-        {
-          message: (typeof txt == 'object'? JSON.stringify(txt) : txt) ,
-          duration: "short", // which is 2000 ms. "long" is 4000. Or specify the nr of ms yourself.
-          position: "bottom",
-          addPixelsY: -40,  // added a negative value to move it up a bit (default 0)
-          // styling: {
-          //   opacity: 0.75, // 0.0 (transparent) to 1.0 (opaque). Default 0.8
-          //   backgroundColor: '#FF0000', // make sure you use #RRGGBB. Default #333333
-          //   textColor: '#FFFF00', // Ditto. Default #FFFFFF
-          //   textSize: 20.5, // Default is approx. 13.
-          //   cornerRadius: 16, // minimum is 0 (square). iOS default 20, Android default 100
-          //   horizontalPadding: 20, // iOS default 16, Android default 50
-          //   verticalPadding: 16 // iOS default 12, Android default 30
-          // }
-        },
-        function(e){console.log(e)}, // optional
-        function(e){console.log(e)}    // optional
-      );
+      self.tooltipMSJ(txt);
     }
   },
   setServerName: function ( cb ) {
@@ -97,6 +79,27 @@ var Main = {
       .attr('aria-valuemax', (obj.total) +'')
       .attr('aria-valuenow', (obj.loaded / obj.total) +'')
       .css('width',((obj.loaded*100) / obj.total)+'%')
+  },
+  tooltipMSJ: function( txt ){
+    window.plugins.toast.showWithOptions(
+      {
+        message: (typeof txt == 'object'? JSON.stringify(txt) : txt) ,
+        duration: "short", // which is 2000 ms. "long" is 4000. Or specify the nr of ms yourself.
+        position: "bottom",
+        addPixelsY: -40,  // added a negative value to move it up a bit (default 0)
+        // styling: {
+        //   opacity: 0.75, // 0.0 (transparent) to 1.0 (opaque). Default 0.8
+        //   backgroundColor: '#FF0000', // make sure you use #RRGGBB. Default #333333
+        //   textColor: '#FFFF00', // Ditto. Default #FFFFFF
+        //   textSize: 20.5, // Default is approx. 13.
+        //   cornerRadius: 16, // minimum is 0 (square). iOS default 20, Android default 100
+        //   horizontalPadding: 20, // iOS default 16, Android default 50
+        //   verticalPadding: 16 // iOS default 12, Android default 30
+        // }
+      },
+      function(e){console.log(e)}, // optional
+      function(e){console.log(e)}    // optional
+    );
   },
   prompMsj: function( str ){ alert(str); },
   downloadFilesPDFs: function( ) {
@@ -132,8 +135,11 @@ var Main = {
     })
     .fail(function( err ) {
       self.downloadedState();
-      self.prompMsj('gettingFile: \n'+self.strings.errorDownloadJSON+'\n'+
-        err.responseText.replace(/\n/ig,"").replace(/(<([^>]+)>)/ig,""));
+      var text = self.strings.errorDownloadJSON+'\n';
+      if( err.responseText )
+        text += err.responseText.replace(/\n/ig,"").replace(/(<([^>]+)>)/ig,"")
+
+      self.prompMsj('gettingFile: \n'+text);
     })
   },
   reloadView: function( files ){
