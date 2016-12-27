@@ -31,146 +31,172 @@
         var version = config.version || "1.0.0";
         var description = config.description || "SQL DB";
         var size = config.size || 64 * 1024;
-        var idRegistro = config.idRegistro || MakeID(10);
-        var idPregunta = config.idPregunta || MakeID(10);
+        var tableName = null;
+        var fields = "";
         return {
             name: name,
             version: version,
             description: description,
             size: size,
-            db: openDatabase(name, version, description, size)
+            tableName: tableName,
+            fields: fields,
+            db: openDatabase(name, version, description, size),
+            createTable: function(params, cb, error) {
+                if (cb === void 0) {
+                    cb = function(obj) {
+                        return console.log(obj, "ok createTable");
+                    };
+                }
+                if (error === void 0) {
+                    error = function(tx, e) {
+                        return console.log("error createTable", e);
+                    };
+                }
+                this.tableName = params.name;
+                var flds = params.fields;
+                for (var i = 0; i < flds.length; i++) this.fields += i == 0 ? flds[i] : ", " + flds[i];
+                this.db.transaction(function(tx) {
+                    tx.executeSql("CREATE TABLE IF NOT EXISTS " + name + " (" + flds + ")", [], function(tx, res) {
+                        return cb({
+                            name: name,
+                            res: res
+                        });
+                    }, error);
+                });
+            },
+            insertValue: function(records, cb, error) {
+                var _this = this;
+                if (cb === void 0) {
+                    cb = function(tx, result) {
+                        return console.log(result, "ok insertValue");
+                    };
+                }
+                if (error === void 0) {
+                    error = function(tx, e) {
+                        return console.log("error insertValue", e);
+                    };
+                }
+                var keysRecords = Object.keys(records || {});
+                var lengthKeysRecords = keysRecords.length;
+                if (lengthKeysRecords > this.fields.length && lengthKeysRecords < this.fields.length) error("Error:", "La cantidad de valores a ingresar no es la misma que los campos de la tabla.\nCampos: " + this.fields + " "); else if (!records || lengthKeysRecords <= 0) error("Error:", "Ingrese un objeto con los valores a ingresar ej; {id:1, data1:2}"); else {
+                    this.db.transaction(function(tx) {
+                        var values = "";
+                        var keys = [];
+                        for (var i = 0; i < lengthKeysRecords; i++) values += i == 0 ? "?" : ", ?";
+                        keys.push(records[keysRecords[i]]);
+                        tx.executeSql("INSERT INTO " + _this.tableName + " (" + _this.fields + ") VALUES (" + values + ")", keys, cb, error);
+                    });
+                }
+            },
+            generateStrings: function(value, key) {
+                var vals = [];
+                var fds = "";
+                if (typeof value == "object" && value.OR && value.OR.length > 0) {
+                    for (var e = 0; e < value.OR.length; ++e) {
+                        fds += e == 0 ? key + " = ? " : " OR " + key + " = ? ";
+                        vals.push(value.OR[e]);
+                    }
+                }
+                if (typeof value == "object" && value.AND && value.AND.length > 0) {
+                    for (var e = 0; e < value.AND.length; ++e) {
+                        fds += e == 0 ? key + " = ? " : " AND " + key + " = ? ";
+                        vals.push(value.AND[e]);
+                    }
+                }
+                if (typeof value != "object") {
+                    fds += e == 0 ? key + " = ? " : " AND " + key + " = ? ";
+                    vals.push(value);
+                }
+                return {
+                    vals: vals,
+                    fds: fds
+                };
+            },
+            deleteValue: function(values, cb, error) {
+                var _this = this;
+                if (cb === void 0) {
+                    cb = function(tx, result) {
+                        return console.log(result, "ok deleteValue");
+                    };
+                }
+                if (error === void 0) {
+                    error = function(tx, e) {
+                        return console.log("error deleteValue", e);
+                    };
+                }
+                var keysValues = Object.keys(values || {});
+                var lengthKeysValues = keysValues.length;
+                if (!values && typeof values != "object" || lengthKeysValues <= 0) {
+                    error("Error:", "Ningún campo para eliminar");
+                } else {
+                    var vals_1 = [];
+                    var fds_1 = "";
+                    for (var i = 0; i < lengthKeysValues; i++) {
+                        var obj = this.generateStrings(values[keysValues[i]], keysValues[i]);
+                        fds_1 += obj.fds;
+                        vals_1.push.apply(vals_1, obj.vals);
+                    }
+                    this.db.transaction(function(tx) {
+                        return tx.executeSql("DELETE FROM " + _this.tableName + " WHERE " + fds_1, vals_1, cb, error);
+                    });
+                }
+            },
+            getValues: function() {
+                return function(values, cb, error) {
+                    var _this = this;
+                    if (cb === void 0) {
+                        cb = function(tx, result) {
+                            return console.log(result, "ok getValues");
+                        };
+                    }
+                    if (error === void 0) {
+                        error = function(tx, e) {
+                            return console.log("error getValues", e);
+                        };
+                    }
+                    this.db.transaction(function(tx) {
+                        var text = "SELECT * FROM " + _this.tableName;
+                        var fields = Object.keys(values || {});
+                        if (values && typeof values != "object" && fields.length >= 0) {
+                            var vals = [];
+                            var fds = "";
+                            for (var i = 0; i < fields.length; i++) {
+                                text += i == 0 ? text + (" WHERE " + fields[i] + " = ? ") : " AND " + fields[i] + " = ?";
+                                vals.push(values[fields[i]]);
+                            }
+                            tx.executeSql(text, [ vals ], function(tx, results) {
+                                if (results.rows.length == 0) cb(tx, {}); else cb(tx, results.rows);
+                            }, error);
+                        } else {
+                            tx.executeSql(text, [], function(tx, results) {
+                                if (results.rows.length == 0) cb(tx, {}); else cb(tx, results.rows);
+                            }, error);
+                        }
+                    });
+                };
+            }
         };
     };
-    function createTable(dbData, params, cb, error) {
-        if (cb === void 0) {
-            cb = function(obj) {
-                return console.log(obj, "ok createTable");
-            };
-        }
-        if (error === void 0) {
-            error = function(e) {
-                return console.log(e, "error createTable");
-            };
-        }
-        var name = params.name;
-        var flds = params.fields;
-        var fields = "";
-        for (var i = 0; i < flds.length; i++) fields += i == 0 ? flds[i] : ", " + flds[i];
-        dbData.db.transaction(function(tx) {
-            tx.executeSql("CREATE TABLE IF NOT EXISTS " + name + " (" + flds + ")", [], function() {
-                return cb({
-                    dbData: dbData,
-                    fields: fields,
-                    name: name
-                });
-            }, error);
-        });
-    }
-    function insertValue(table, records, cb, error) {
-        if (cb === void 0) {
-            cb = function(result) {
-                return console.log(result, "ok insertValue");
-            };
-        }
-        if (error === void 0) {
-            error = function(e) {
-                return console.log(e, "error insertValue");
-            };
-        }
-        if (!records || records.length <= 0) error("Ingrese un array con strings de los valores a ingresar"); else {
-            table.dbData.db.transaction(function(tx) {
-                var values = "";
-                for (var i = 0; i < records.length; i++) values += i == 0 ? "?" : ", ?";
-                tx.executeSql("INSERT INTO " + table.name + " (" + table.fields + ") VALUES (" + values + ")", records, cb, error);
-            });
-        }
-    }
-    function deleteValue(table, values, cb, error) {
-        if (cb === void 0) {
-            cb = function(tx, result) {
-                return console.log(result, "ok deleteValue");
-            };
-        }
-        if (error === void 0) {
-            error = function(e) {
-                return console.log(e, "error deleteValue");
-            };
-        }
-        var fields = Object.keys(values || {});
-        if (!values && typeof values != "object" || fields.length <= 0) {
-            error("Not fields to erase");
-        } else {
-            var vals_1 = [];
-            var fds_1 = "";
-            for (var i = 0; i < fields.length; i++) {
-                if (typeof values[fields[i]] == "object" && values[fields[i]].length > 0) {
-                    for (var e = 0; e < values[fields[i]].length; ++e) {
-                        fds_1 += e == 0 ? fields[i] + " = ? " : " OR " + fields[i] + " = ? ";
-                        vals_1.push(values[fields[i]][e]);
-                    }
-                } else {
-                    fds_1 += i == 0 ? fields[i] + " = ? " : ", " + fields[i] + " = ? ";
-                    vals_1.push(values[fields[i]]);
-                }
-            }
-            console.log(fds_1, vals_1, "asdasdasdasdads");
-            table.dbData.db.transaction(function(tx) {
-                return tx.executeSql("DELETE FROM " + table.name + " WHERE " + fds_1, vals_1, cb, error);
-            });
-        }
-    }
-    function getValues(table) {
-        return function(values, cb, error) {
-            if (cb === void 0) {
-                cb = function(tx, result) {
-                    return console.log(result, "ok getValues");
-                };
-            }
-            if (error === void 0) {
-                error = function(e) {
-                    return console.log(e, "error getValues");
-                };
-            }
-            table.dbData.db.transaction(function(tx) {
-                var text = "SELECT * FROM " + table.name;
-                var fields = Object.keys(values || {});
-                if (values && typeof values != "object" && fields.length >= 0) {
-                    var vals = [];
-                    var fds = "";
-                    for (var i = 0; i < fields.length; i++) {
-                        text += i == 0 ? text + (" WHERE " + fields[i] + " = ? ") : " AND " + fields[i] + " = ?";
-                        vals.push(values[fields[i]]);
-                    }
-                    tx.executeSql(text, [ vals ], function(tx, results) {
-                        if (results.rows.length == 0) cb(tx, {}); else cb(tx, results.rows);
-                    }, error);
-                } else {
-                    tx.executeSql(text, [], function(tx, results) {
-                        if (results.rows.length == 0) cb(tx, {}); else cb(tx, results.rows);
-                    }, error);
-                }
-            });
-        };
-    }
     var db = SQL({
         name: "DataBase",
         version: "1.0.0"
     });
     var table;
+    var insertData;
     createTable(db, {
         name: "Ayer",
         fields: [ "id", "hola", "date" ]
     }, function(tables) {
         table = tables;
-        console.log(tables);
-        insertValue(table, [ 1, "hola 666", new Date().getTime() ]);
-        insertValue(table, [ 3, "hola 666", new Date().getTime() ]);
-        insertValue(table, [ 3, "hola 777", new Date().getTime() ]);
-        insertValue(table, [ 3, "hola 555", new Date().getTime() ]);
+        console.log(tables, "lista de tablas");
+        insertData = insertValue(table);
         var getVal = getValues(table);
         getVal();
         deleteValue(table, {
             id: [ 3, 1 ]
         });
     });
+    insertData([ 3, "hola 666", new Date().getTime() ]);
+    insertData([ 3, "hola 777", new Date().getTime() ]);
+    insertData([ 3, "hola 555", new Date().getTime() ]);
 } ]);
