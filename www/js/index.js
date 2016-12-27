@@ -42,12 +42,12 @@ var Main = {
     lis: 'ul.list-group li',
     ul: 'ul.list-group',
     serverName: '#serverName',
+    parentProgressBar: '.progress',
     progressBar: '.progress div.progress-bar',
-    ver: '#ver',
     ver: '#ver',
   },
   cordovaDir:'file:///storage/D62D-1E04/',
-  serverName: 'http://192.168.4.88/files/', //siempre debe de llevar el slash / a lo último
+  serverName: 'http://192.168.0.16/files/', //siempre debe de llevar el slash / a lo último
   fileName: "download.json",
   DB: {},
   Files:[],
@@ -59,29 +59,29 @@ var Main = {
     $(this.elems.download).removeClass('btn-primary')
       .addClass('btn-warning')
       .text(self.strings.downloading)
-    this.addProgressBar( {total: 100, loaded:0 } );
+    this.addProgressBar( {total:100, loaded:0, show:true } );
   },
   downloadedState: function ( txt) {
     var self = this;
     $(this.elems.download).removeClass('btn-warning').addClass('btn-primary').text(this.strings.downloaded);
 
-    this.addProgressBar( {total: 100, loaded:0 } );
+    this.addProgressBar( {total: 100, loaded:0, show:false} );
     if( txt ){
       window.plugins.toast.showWithOptions(
         {
-          message: txt,
+          message: (typeof txt == 'object'? JSON.stringify(txt) : txt) ,
           duration: "short", // which is 2000 ms. "long" is 4000. Or specify the nr of ms yourself.
           position: "bottom",
           addPixelsY: -40,  // added a negative value to move it up a bit (default 0)
-          styling: {
-            opacity: 0.75, // 0.0 (transparent) to 1.0 (opaque). Default 0.8
-            backgroundColor: '#FF0000', // make sure you use #RRGGBB. Default #333333
-            textColor: '#FFFF00', // Ditto. Default #FFFFFF
-            textSize: 20.5, // Default is approx. 13.
-            cornerRadius: 16, // minimum is 0 (square). iOS default 20, Android default 100
-            horizontalPadding: 20, // iOS default 16, Android default 50
-            verticalPadding: 16 // iOS default 12, Android default 30
-          }
+          // styling: {
+          //   opacity: 0.75, // 0.0 (transparent) to 1.0 (opaque). Default 0.8
+          //   backgroundColor: '#FF0000', // make sure you use #RRGGBB. Default #333333
+          //   textColor: '#FFFF00', // Ditto. Default #FFFFFF
+          //   textSize: 20.5, // Default is approx. 13.
+          //   cornerRadius: 16, // minimum is 0 (square). iOS default 20, Android default 100
+          //   horizontalPadding: 20, // iOS default 16, Android default 50
+          //   verticalPadding: 16 // iOS default 12, Android default 30
+          // }
         },
         function(e){console.log(e)}, // optional
         function(e){console.log(e)}    // optional
@@ -91,27 +91,21 @@ var Main = {
   setServerName: function ( cb ) {
     this.serverName =  $(this.elems.serverName).val()
   },
-  promptError: function( error ){
-    alert("download error source " + error.source+"\n"+"download error target " + error.target+"\n"+"download error code " + error.code);
-  },
   addProgressBar: function( obj ){
+    $(this.elems.parentProgressBar).css('display',(obj.show == true ? 'show': 'none'));
     $(this.elems.progressBar)
       .attr('aria-valuemax', (obj.total) +'')
-      .attr('aria-valuenow', (obj.loaded / obj.total) +'');
+      .attr('aria-valuenow', (obj.loaded / obj.total) +'')
+      .css('width',((obj.loaded*100) / obj.total)+'%')
   },
   prompMsj: function( str ){ alert(str); },
   downloadFilesPDFs: function( ) {
     var self = this;
-    this.getVersion(function( oldFile ){
-      self.gettingFile( self.serverName+self.fileName , function(err, text) {
-        if( text && !/\<\?xml/.test(text)){
-          console.log(oldFile, JSON.parse(text),' downloadFilesPDFs' )
-          self.compareVersion(oldFile, JSON.parse(text));
-        }else if( err && text == null){
-          self.prompMsj(self.strings.errorDownloadJSON+'\n'+err);
-        }
-      })
-
+    this.addProgressBar( {total: 100, loaded:0, show:true });
+    self.gettingFile( self.serverName+self.fileName , function( text ) {
+      self.getFiles(function( oldFile ){
+        self.compareVersion(oldFile, JSON.parse(text));
+      }, true);
     })
   },
   checkDisk: function ( sizeFiles, cb ){
@@ -119,29 +113,28 @@ var Main = {
     cordova.exec( function(result) {
       if((result / 1024) <= sizeFiles){
         cb( null )
-        self.prompMsj(self.strings.notFreeSpaceClean+'\n'+'Libere '+((result / 1024) - sizeFiles)+' MB de espacio para realizar la descarga.');
+        self.prompMsj('checkDisk: \n'+self.strings.notFreeSpaceClean+'\n'+'Libere '+((result / 1024) - sizeFiles)+' MB de espacio para realizar la descarga.');
       }else{
         cb( true )
       }
     }, function(result)  {
       cb( null );
-      self.prompMsj(self.strings.notFreeSpace);
+      self.prompMsj('checkDisk: \n'+self.strings.notFreeSpace);
     }, "File", "getFreeDiskSpace", [])
   },
   gettingFile: function(route, fn) {
-    var data = null;
-    var xhr = new XMLHttpRequest();
-    xhr.addEventListener("readystatechange", function() {
-      console.log( this.readyState )
-      if (this.readyState === 4) 
-        fn( null, this.responseText )
-      // else
-      //   fn( this.responseText, null )
-    });
-    xhr.open("GET", route );
-    xhr.setRequestHeader("cache-control", "no-cache");
-    // xhr.setRequestHeader("dataType", "json");
-    xhr.send(data);
+    var self = this;
+    $.ajax({
+      url: route,
+    })
+    .done(function(res) {
+      fn( res )
+    })
+    .fail(function( err ) {
+      self.downloadedState();
+      self.prompMsj('gettingFile: \n'+self.strings.errorDownloadJSON+'\n'+
+        err.responseText.replace(/\n/ig,"").replace(/(<([^>]+)>)/ig,""));
+    })
   },
   reloadView: function( files ){
     var self = this;
@@ -169,7 +162,7 @@ var Main = {
   compareVersion: function(oldFile, newFile) {
     var self = this
 
-    var oldFile = typeof oldFile == 'object'? oldFile : (oldFile != null )? JSON.parse(oldFile) : oldFile,
+    var oldFile = typeof oldFile == 'object'? oldFile : JSON.parse(oldFile),
         newFile = typeof newFile == 'object'? newFile : JSON.parse(newFile),
         newFileKeys = Object.keys(newFile) ,
         newFileLength = newFileKeys.length,
@@ -183,43 +176,79 @@ var Main = {
     this.checkDisk(sizeFiles, function( pass ){
       
       if( pass != null ){
-        $(self.elems.lis).remove()
+        // $(self.elems.lis).remove()
+        for (var i = 0; i < newFileLength; i++) {
+          var fileDownload = newFile[newFileKeys[i]];
+          var fileOld = oldFile ? oldFile[newFileKeys[i]] : null;
 
-        if( oldFile == null ){
-          self.insertVersion( JSON.stringify(newFile) )
-          for (var i = 0; i < newFileLength; i++) {
-            var fileDownload = newFile[newFileKeys[i]];
+          if( fileOld && !(fileDownload.version.split('.')).equals(fileOld.version.split('.')) ){
+            newVerCount ++;
             self.downloadFileBegin( fileDownload, function( file ){
-              self.insertFile( file )
+              self.updateFile( file );
+              self.removeLiFile( file );
+              self.addLiFile( file );
+              self.downloadedState( file.name+' descargado.' );
+            });
+          }else if( !fileOld ) {
+            newVerCount ++;
+            self.downloadFileBegin( fileDownload, function( file ){
+              self.insertFile( file );
               self.addLiFile( file );
               self.downloadedState( file.name+' descargado.' );
             });
           }
-        }else{
-          for (var i = 0; i < newFileLength; i++) {
-            var oV = (oldFile[newFileKeys[i]] && oldFile[newFileKeys[i]].version ? oldFile[newFileKeys[i]].version : '0.0.0').split('.'),
-              nV = (newFile[newFileKeys[i]] && newFile[newFileKeys[i]].version ? newFile[newFileKeys[i]].version : '0.0.0').split('.'),
-              fileDownload = newFile[newFileKeys[i]];
 
-            if( !oV.equals(nV) ){
-              newVerCount ++;
-              self.downloadFileBegin(fileDownload , function( file ){
-                self.updateFile( file )
-                self.removeLiFile( file );
-                self.addLiFile( file );
-                self.downloadedState( file.name+' descargado.'  )
-              });
-            }
-          }
-
-          if( newVerCount > 0 ){
-            self.insertVersion( JSON.stringify(newFile) )
-          }else{
-            self.reloadView();
-            self.prompMsj(self.strings.isCurrentVersion);
-            self.downloadedState( );
-          }
         }
+        if( newVerCount > 0 ){
+          self.downloadedState( );
+        }else{
+          self.reloadView();
+          self.prompMsj('compareVersion: \n'+self.strings.isCurrentVersion);
+          self.downloadedState( );
+        }
+
+        // if( oldFile == null ){
+        //   self.insertVersion( JSON.stringify(newFile) )
+        //   for (var i = 0; i < newFileLength; i++) {
+        //     var fileDownload = newFile[newFileKeys[i]];
+        //     self.downloadFileBegin( fileDownload, function( file ){
+        //       self.insertFile( file )
+        //       self.addLiFile( file );
+        //       self.downloadedState( file.name+' descargado.' );
+        //     });
+        //   }
+        // }else{
+        //   for (var i = 0; i < newFileLength; i++) {
+        //     var oV = (oldFile[newFileKeys[i]] && oldFile[newFileKeys[i]].version ? oldFile[newFileKeys[i]].version : '0.0.0').split('.'),
+        //       nV = (newFile[newFileKeys[i]] && newFile[newFileKeys[i]].version ? newFile[newFileKeys[i]].version : '0.0.0').split('.'),
+        //       fileDownload = newFile[newFileKeys[i]];
+
+        //     if( !oV.equals(nV) && !oV.equals('0.0.0'.split('.')) ){
+        //       newVerCount ++;
+        //       self.downloadFileBegin(fileDownload , function( file ){
+        //         self.updateFile( file )
+        //         self.removeLiFile( file );
+        //         self.addLiFile( file );
+        //         self.downloadedState( file.name+' descargado.'  )
+        //       });
+        //     }else if( !oV.equals(nV) && !oV.equals('0.0.0'.split('.')) ){
+        //       newVerCount ++;
+        //       self.downloadFileBegin(fileDownload , function( file ){
+        //         self.insertFile( file )
+        //         self.addLiFile( file );
+        //         self.downloadedState( file.name+' descargado.'  )
+        //       });
+        //     }
+        //   }
+
+        //   if( newVerCount > 0 ){
+        //     self.downloadedState( );
+        //   }else{
+        //     self.reloadView();
+        //     self.prompMsj('compareVersion: \n'+self.strings.isCurrentVersion);
+        //     self.downloadedState( );
+        //   }
+        // }
       }else{
         self.downloadedState( );
       }
@@ -237,10 +266,11 @@ var Main = {
     })
   },
   deleteVersion: function(){
-    this.db.transaction( function(tx) {
+    var self = this;
+    this.DB.transaction( function(tx) {
       tx.executeSql('SELECT id, MAX(date) FROM FILESVERSION',[], function(tx,results){
         if(results.rows.length >= 0 && results.rows[0].id != null){
-          this.DB.transaction( function(tx) {
+          self.DB.transaction( function(tx) {
             tx.executeSql('DELETE FROM FILESVERSION WHERE id = ?',[ results.rows[0].id ], function(){console.log(null,'ok')}, function(){console.log('error',null)})
           })
         }
@@ -249,8 +279,12 @@ var Main = {
   },
   updateFile: function( file ){
     this.DB.transaction( function(tx) {
-      tx.executeSql('UPDATE FILES SET (fullPath, version, date ) VALUES (?,?,?) WHERE id = ? ',
-        [file.fullPath, file.version, new Date().getTime(),file.id]);
+      tx.executeSql('UPDATE FILES SET name = ?, fullPath = ?, version = ?, date = ? WHERE id = ?',
+        [file.name, file.fullPath, file.version, new Date().getTime(),file.id],function(tx,rs){
+          console.log(tx,rs)
+        },function(tx,err){
+          console.log(tx,err)
+        });
     })
   },
   insertFile: function( file ){
@@ -274,33 +308,39 @@ var Main = {
           cb( json );
 
       }, function(tx,err){
-        self.prompMsj(tx,err)
+        self.prompMsj('getVersion: \n'+JSON.stringify(tx)+JSON.stringify(err));
       })
     })
   },
-  getFiles: function( cb ) {
+  getFiles: function( cb, obj ) {
     var self = this;
     this.DB.transaction( function(tx) {
       tx.executeSql('SELECT * FROM FILES', [], function (tx, results) {
-        var files = [];
-
+        var files = obj==true? null : [];
         if(results.rows.length > 0){
-          var keys = Object.keys(results.rows);
-          for (var i = 0; i < keys.length; i++) {
-            files.push(results.rows[keys[i]])
+          if( obj ){
+            var keys = Object.keys(results.rows);
+            files = {};
+            for (var i = 0; i < keys.length; i++) {
+              files[ results.rows[keys[i]].name ] = results.rows[keys[i]]
+            }
+          }else{
+            var keys = Object.keys(results.rows);
+            for (var i = 0; i < keys.length; i++) {
+              files.push(results.rows[keys[i]])
+            }
           }
         }
         if( cb )
           cb( files );
       }, function(tx, e){
-        self.prompMsj(JSON.stringify(tx)+': \n'+JSON.stringify(e))
+        self.prompMsj('getFiles: \n'+JSON.stringify(tx)+': \n'+JSON.stringify(e))
       })
     });
   },
   initDataBase: function ( cb ) {
     this.DB = window.openDatabase('files','1.0.0', 'Default description', 64 * 1024 );
     this.DB.transaction( function( tx ) {
-      tx.executeSql('CREATE TABLE IF NOT EXISTS FILESVERSION (id unique, json, date )');
       tx.executeSql('CREATE TABLE IF NOT EXISTS FILES (id unique, name, fullPath, type, version, date )');
       if( cb )
         cb( );
@@ -339,9 +379,10 @@ var Main = {
 
       fileTransfer.onprogress = function(progressEvent) {
         if (progressEvent.lengthComputable) {
+          progressEvent.show = true;
           self.addProgressBar( progressEvent );
         } else {
-          self.addProgressBar( {total: 100, loaded:0 } );
+          self.addProgressBar( {total: 100, loaded:0, show:false } );
         }
       };
 
@@ -354,7 +395,8 @@ var Main = {
         },
         function(err){
           self.deleteVersion();
-          self.promptError(err)
+          self.prompMsj('FileTransfer: \n'+JSON.stringify(err));
+          self.downloadedState( );
         },
         false,
         { mimeType: "application/pdf" }
@@ -382,7 +424,8 @@ var Main = {
   },
   addLiFile: function( file ){
     var self = this;
-    $('ul.list-group').append('<li data-id="'+file.id+'" class="'+file.id+' list-group-item" data-url="\''+ 
+    $('ul.list-group').append('<li class="list-group-item '+file.id+'" data-id="'+
+          file.id+'" data-url="\''+ 
           file.fullPath +'\'" data-name="'+ file.name +'" '+
           'data-cordovadir="'+ this.cordovaDir +'" >'+ 
           file.name +'</li>')
@@ -420,8 +463,8 @@ var Main = {
         file.fullPath,
         'application/pdf', 
         { 
-          error : function( e ){ self.prompMsj('Error status: ' + e.status + ' - Error message: ' + e.message)},
-          success : function() { self.prompMsj('file opened successfully')}
+          error : function( e ){ self.prompMsj('mouseOutButton: \n'+'Error status: ' + e.status + ' - Error message: ' + e.message)},
+          success : function() { self.prompMsj('mouseOutButton: \n'+'file opened successfully')}
         }
       );
     }
@@ -449,65 +492,23 @@ function inicialice(){
   // Ver archivos
   $('#ver').click(function(evt){
     evt.preventDefault();
-    Main.toggleVerArchivos( $(this) )
+    Main.toggleVerArchivos()
   })
 
   // descargar archivos
   $('#download').click(function(evt){
     evt.preventDefault();
-    Main.downloadingState( $(this) )
+    Main.downloadingState( )
     Main.downloadFilesPDFs( )
   })
+  // Set in the input nameserver
+  $('#serverName').val(Main.serverName)
   // setServername
   $('#setServer').click(function(evt){
     evt.preventDefault();
     Main.setServerName();
   })
 
-  // document.getElementById('borrar').addEventListener('click', function(){ Main.deletedFiles() }, false)
-  // Opcional de borrar todos los archivos
-  // $('#borrar').click(function(event) {
-  //   $('.list-group li').remove()
-  //   localStorage.removeItem('fileVersion')
-  //   deletedFiles()
-  // });
 }
 
-function deletedFiles( fn, argFn ) {
-  var files = JSON.parse(localStorage.getItem('files')),
-      countFiles;
-
-  if(files != null){
-    countFiles = files.length,
-            i = 0;
-    
-    f(i)
-  }
-  let f = function(e ) {
-    window.resolveLocalFileSystemURL(files[e].route, function(dir) {
-      localStorage.removeItem('files')
-      dir.getFile(files[e].name+'.pdf', { create: false }, function(fileEntry) {
-                  fileEntry.remove(function () {
-                    e ++;
-                    if( e < countFiles ){
-                      f(e)
-                    }else{
-                      if( fn != null && argFn != null )
-                        fn( argFn )
-                      if( fn != null && argFn == null )
-                        fn( ' Archivo removido con exito ' )
-                    }
-                      
-                  }, function(error) {
-                    if( fn != null && argFn == null )
-                      fn( error )
-                  },function () {
-                    if( fn != null && argFn == null )
-                      fn( 'no existe el archivo' )
-                  });
-      });
-    });
-  }
-
-}
 
