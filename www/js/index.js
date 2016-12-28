@@ -147,7 +147,7 @@ var Main = {
         dir.getFile(file.name, { create: false }, 
           function(fileEntry) {
             fileEntry.remove(function () {
-              Main.actions.deleteFileDB(file.id, function(){
+              Main.deleteFileDB(file.id, function(){
                 Main.views.removeFile( file )
               })
             }, function(error) {
@@ -284,15 +284,16 @@ var Main = {
     var self = this;
     self.getFileServerJson( self.serverName+self.fileName , function( text ) {
       self.getFilesDB(function( oldFile ){
-        self.compareVersion(oldFile, (typeof text == 'object'? text : JSON.parse(text)));
+        setTimeout(function(){
+          self.compareVersion(oldFile, (typeof text == 'object'? text : JSON.parse(text)));
+        },1);
       }, true);
     })
   },
   getFileServerJson: function(route, fn) {
-    var self = this;
     var timeout = true;
     var ajax = $.ajax({
-      url: route,
+      url: route+'?_=' + new Date().getTime()
     })
     .done(function(res) {
       timeout = false
@@ -350,33 +351,75 @@ var Main = {
       Main.actions.checkDisk(sizeFiles, function( pass ){
         
         if( pass != null ){
+
           if( filesToDownload.updates.length > 0 ){
-            for (var i = 0; i < filesToDownload.updates.length; i++) {
-              filesToDownload.updates[i]
-              var fileDownload = filesToDownload.updates[i];
+            var i = 0;
+
+            var fnUpdate = function( e ) {
+
+              var fileDownload = filesToDownload.updates[e];
+
               self.downloadFileServer( fileDownload, function( file ){
+
                 self.updateFileDB( file );
-                Main.views.finishDownload( file.name+' descargado.' );
-                I ++;
-              }, self);
+                Main.views.finishDownload( file.name+' actualizado.' );
+                e += 1;
+                if( e < filesToDownload.updates.length )
+                  fnUpdate( e )
+                else{
+                  self.reloadView();
+                  Main.views.finishDownload('Todos los archivos actualizados.' );
+                }
+
+              });
+
             }
+
+            fnUpdate(i)
+
+            // for (var i = 0; i < filesToDownload.updates.length; i++) {
+            // }
           }
           if( filesToDownload.inserts.length > 0 ){
-            for (var i = 0; i < filesToDownload.updates.length; i++) {
-              filesToDownload.updates[i]
-              var fileDownload = filesToDownload.updates[i];
+            var a = 0;
+
+            var fnInsert = function( e ) {
+
+              var fileDownload = filesToDownload.inserts[e];
+
               self.downloadFileServer( fileDownload, function( file ){
+
                 self.insertFileDB( file );
-                Main.views.finishDownload( file.name+' descargado.' );
-                I ++;
-              }, self);
+                Main.views.tooltipMSJ( file.name+' descargado.' );
+                e += 1;
+                if( e < filesToDownload.inserts.length )
+                  fnInsert( e )
+                else{
+                  self.reloadView();
+                  Main.views.finishDownload('Todos los archivos nuevos descargados.' );
+                }
+
+
+              });
+
             }
+
+            fnInsert(a);
+            // for (var i = 0; i < filesToDownload.updates.length; i++) {
+            //   filesToDownload.updates[i]
+            //   var fileDownload = filesToDownload.updates[i];
+            //   self.downloadFileServer( fileDownload, function( file ){
+            //     self.insertFileDB( file );
+            //     Main.views.finishDownload( file.name+' descargado.' );
+            //     I ++;
+            //   }, self);
+            // }
           }
-          self.reloadView();
         }
 
       })
     }else{
+      Main.views.finishDownload();
       Main.views.prompMsj('compareVersion: \n'+Main.strings.isCurrentVersion);
     }   
 
@@ -415,9 +458,9 @@ var Main = {
     //   Main.views.finishDownload( );
     // })
   },
-  downloadFileServer: function( file, self, cb ) {
+  downloadFileServer: function( file, cb ) {
     var stor = window.externalApplicationStorageDirectory || window.PERSISTENT || window.TEMPORARY,
-      pathToFile = self.cordovaDir + file.name;
+      pathToFile = Main.cordovaDir + file.name;
 
     window.requestFileSystem = window.requestFileSystem || window.webkitRequestFileSystem
 
