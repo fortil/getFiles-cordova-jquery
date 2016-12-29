@@ -106,16 +106,7 @@ var Main = {
           message: (typeof txt == 'object'? JSON.stringify(txt) : txt) ,
           duration: "short", // which is 2000 ms. "long" is 4000. Or specify the nr of ms yourself.
           position: "bottom",
-          addPixelsY: -40,  // added a negative value to move it up a bit (default 0)
-          // styling: {
-          //   opacity: 0.75, // 0.0 (transparent) to 1.0 (opaque). Default 0.8
-          //   backgroundColor: '#FF0000', // make sure you use #RRGGBB. Default #333333
-          //   textColor: '#FFFF00', // Ditto. Default #FFFFFF
-          //   textSize: 20.5, // Default is approx. 13.
-          //   cornerRadius: 16, // minimum is 0 (square). iOS default 20, Android default 100
-          //   horizontalPadding: 20, // iOS default 16, Android default 50
-          //   verticalPadding: 16 // iOS default 12, Android default 30
-          // }
+          addPixelsY: -40,
         },
         function(e){console.log(e)}, // optional
         function(e){console.log(e)}    // optional
@@ -280,16 +271,36 @@ var Main = {
     Main.views.hideFiles();
     Main.views.finishDownload();
   },
+  /*
+  * Inicia todo el proceso de descarga
+  */
   initDownloadFiles: function( ) {
     var self = this;
-    self.getFileServerJson( self.serverName+self.fileName , function( text ) {
+    // Se llama a la función que trae el JSON guardado en el servidor
+    // que contiene toda la información de los archivos a guardar y comparar
+    // @Param=> enlace del archivo.json en el servidor a descargar
+    // @Return=> devuelve el archivo json del servidor 
+    self.getFileServerJson( self.serverName+self.fileName , function( jsonServer ) {
+      // Obtiene un diccionario JSON con los archivos guardados en la 
+      // base de datos
+      // @Param=> función callback que recibe el diccionario o el array
+      // @Param=> si se requiere en objeto (true) o en array
+      // getFilesDB(CB, true)
       self.getFilesDB(function( oldFile ){
+        // Se hace una comparación y posterior descarga de los archivos
+        // asincronamente para que no se pause el programa
         setTimeout(function(){
-          self.compareVersion(oldFile, (typeof text == 'object'? text : JSON.parse(text)));
+          // Se comparan las versiones guardadas en la base de datos 'oldFile' y la descargada
+          // del servidor 'jsonServer'
+          self.compareVersion(oldFile, (typeof jsonServer == 'object'? jsonServer : JSON.parse(jsonServer)));
         },1);
       }, true);
     })
   },
+  /*
+  * Recive la ruta a la cual se hará la descarga del archivo
+  * y una función callback
+  */
   getFileServerJson: function(route, fn) {
     var timeout = true;
     var ajax = $.ajax({
@@ -307,11 +318,18 @@ var Main = {
 
       Main.views.prompMsj('getFileServerJson: \n'+text);
     })
+    // Esta parte es para esperar solamente 10 segundos
+    // para que la descarga se realice, ya que ajax de jQuery espera
+    // más tiempo, si se desea acortar o ampliar el tiempo
+    // solo se cambia en el del setTimeout
     setTimeout(function(){
       if( timeout == true )
         ajax.abort();
     }, 10000)
   },
+  /*
+  * Recive los dos diccionarios a comparar
+  */
   compareVersion: function(oldFile, newFile) {
     var self = this
 
@@ -319,15 +337,14 @@ var Main = {
         newFile = typeof newFile == 'object'? newFile : JSON.parse(newFile),
         newFileKeys = Object.keys(newFile) ,
         newFileLength = newFileKeys.length,
-        // newVerCount = 0,
         sizeFiles = 0;
 
-    // for (var a = 0; a < newFileLength; a++) {
-    //   sizeFiles += (+newFile[newFileKeys[a]].size)
-    // }
 
     var filesToDownload = {updates:[], inserts:[]};
 
+    // Se comparan los archivos por separado y si hay que insertar un nuevo
+    // o hay que actualizar uno se envían a arreglos diferentes para su tratamiento
+    // diferenciado
     for (var i = 0; i < newFileLength; i++) {
       var fileDownload = newFile[newFileKeys[i]];
       var fileOld = oldFile ? oldFile[newFileKeys[i]] : null;
@@ -339,6 +356,8 @@ var Main = {
       
     }
 
+    // Se comprueba si hay elementos de cada uno y se suma su peso para comprobar posteriormente
+    // si se tiene la capacidad de recibir los archivos o no
     if( filesToDownload.updates.length > 0 ){
       for (var a = 0; a < filesToDownload.updates.length; a++)
         sizeFiles += (+filesToDownload.updates[a].size);
@@ -346,8 +365,9 @@ var Main = {
       for (var a = 0; a < filesToDownload.inserts.length; a++)
         sizeFiles += (+filesToDownload.inserts[a].size);
     }
-
+    // Se comprueba si hay archivos para descargar
     if( sizeFiles > 0 ){
+      // COn esta función se comprueba si se está habilitado para descargar los nuevos archivos
       Main.actions.checkDisk(sizeFiles, function( pass ){
         
         if( pass != null ){
@@ -377,8 +397,6 @@ var Main = {
 
             fnUpdate(i)
 
-            // for (var i = 0; i < filesToDownload.updates.length; i++) {
-            // }
           }
           if( filesToDownload.inserts.length > 0 ){
             var a = 0;
@@ -405,58 +423,17 @@ var Main = {
             }
 
             fnInsert(a);
-            // for (var i = 0; i < filesToDownload.updates.length; i++) {
-            //   filesToDownload.updates[i]
-            //   var fileDownload = filesToDownload.updates[i];
-            //   self.downloadFileServer( fileDownload, function( file ){
-            //     self.insertFileDB( file );
-            //     Main.views.finishDownload( file.name+' descargado.' );
-            //     I ++;
-            //   }, self);
-            // }
           }
         }
 
       })
     }else{
+      // Si no hay archivos por descargar, es decir que todas las versiones son igual
+      // Se avisa de que está en la versión más actualizada del sistema
       Main.views.finishDownload();
       Main.views.prompMsj('compareVersion: \n'+Main.strings.isCurrentVersion);
     }   
 
-    // Main.actions.checkDisk(sizeFiles, function( pass ){
-      
-    //   if( pass != null ){
-    //     for (var i = 0; i < newFileLength; i++) {
-    //       var fileDownload = newFile[newFileKeys[i]];
-    //       var fileOld = oldFile ? oldFile[newFileKeys[i]] : null;
-
-    //       if( fileOld && !(fileDownload.version.split('.')).equals(fileOld.version.split('.')) ){
-    //         newVerCount ++;
-    //         Main.views.initDownloading();
-    //         self.downloadFileServer( fileDownload, function( file ){
-    //           self.updateFileDB( file );
-    //           self.reloadView();
-    //           Main.views.finishDownload( file.name+' descargado.' );
-    //         });
-    //       }else if( !fileOld ) {
-    //         newVerCount ++;
-    //         Main.views.initDownloading();
-    //         self.downloadFileServer( fileDownload, function( file ){
-    //           self.insertFileDB( file );
-    //           self.reloadView();
-    //           Main.views.finishDownload( file.name+' descargado.' );
-    //         });
-    //       }
-
-    //     }
-
-    //     if( newVerCount <= 0 ){
-    //       Main.views.prompMsj('compareVersion: \n'+Main.strings.isCurrentVersion);
-    //     }
-    //   }
-
-    //   Main.views.finishDownload( );
-    // })
   },
   downloadFileServer: function( file, cb ) {
     var stor = window.externalApplicationStorageDirectory || window.PERSISTENT || window.TEMPORARY,
@@ -504,29 +481,47 @@ document.addEventListener('deviceready', function() { inicialice() }, false);
 
 function inicialice(){
 
-
+  // Se debe iniciar la base de datos primero que todo
+  // dentro del objeto para poder utilizar las características
+  // si se utilizan otras formas, se pueden reescribir los
+  // métodos
   Main.initDB();
+  // Se establece la variable en la que se requieren guardar 
+  // guardar y mostrar los archivos
   Main.cordovaDir = cordova.file.externalDataDirectory;
 
-  // Se puede obtener los archivos guardados en la DB
+  // Con este médoto se obtienen todos los objetos JSON
+  // guardados en la DB que tienen la información 
+  // acerca de los archivos
   Main.getFilesDB( function( files ){
+    // Con esta función se fuelve a cargar la vista con el array
+    // de archivos que se le pasa, es opcional, si este parámetro 
+    // no se le envía el automáticamente llama a la función, esta función hace parte
+    // de la vista y se puede omitir en una implementación externa
     Main.reloadView( files )
+
   });
 
   // Ver archivos
-  $('#ver').click(function(evt){
+  // Botón que oculta y muestra los archivos
+  $(Main.elems.ver).click(function(evt){
     evt.preventDefault();
+    // Vista para mostrar o ocultar los archivos
     Main.views.toogleFiles()
   })
 
-  // descargar archivos
-  $('#download').click(function(evt){
+  // Botón de descarga de archivos
+  $(Main.elems.download).click(function(evt){
     evt.preventDefault();
+    // Inicia el estado descargando, botón naranja y texto "descargando..."
     Main.views.initDownloading()
+    // Inicia todo el proceso del script
     Main.initDownloadFiles( )
   })
+  // Estos son opcionales, solo se creó de prueba para cambiar de url
+  // de servidor para probar errores
   // Set in the input nameserver
-  $('#serverName').val(Main.serverName)
+  $(Main.elems.serverName).val(Main.serverName)
   // setServername
   $('#setServer').click(function(evt){
     evt.preventDefault();
